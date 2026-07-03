@@ -1,36 +1,34 @@
 # Py-ML-Inference-Server
 
-![CI](https://github.com/skylerblue333/Py-ML-Inference-Server/workflows/CI/badge.svg)
-![Python](https://img.shields.io/badge/python-3.11+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.103-00a393.svg)
-![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=flat&logo=redis&logoColor=white)
+Flask service for serving pre-trained models.
 
-A production-grade inference server designed for sub-millisecond neural network forward passes, supporting TensorRT/ONNX backends.
+## 🚀 Overview
+This repository contains a professional implementation of **Py ML Inference Server**. It is designed with clean code principles and focuses on functionality and reliability.
 
-## System Architecture
+## 🛠️ Tech Stack
+- **Primary Language**: Py
+- **Environment**: Node.js / Python / Rust (as applicable)
+- **Key Features**: 
+  - Modular architecture
+  - Clean implementation of core logic
+  - Scalable design
 
+## 📂 Getting Started
 
-```mermaid
-graph TD
-    Client-->|REST/gRPC|API[API Gateway]
-    API-->|OpenTelemetry|Tracer[Jaeger/Zipkin]
-    API-->|Pub/Sub|Redis[(Redis Event Bus)]
-    Redis-->Worker1[AI Worker Node]
-    Redis-->Worker2[Data Worker Node]
-    Worker1-->LLM[OpenAI/LLM API]
-    Worker2-->DB[(PostgreSQL)]
-```
+### Prerequisites
+- Ensure you have the latest version of the relevant runtime (Node.js, Python, or Rust) installed.
 
-
-## Elite Features
-- **Zero-Copy Arrays**: Numpy tensor memory mapping.
-- **Sub-millisecond Latency**: Optimized FastAPI routing.
-- **Telemetry**: Built-in latency tracking and model versioning.
-
-## Quick Start
+### Installation
 ```bash
-docker-compose up -d redis
-pip install -r requirements.txt
-pytest tests/ -v
-uvicorn src.main:app --reload
+git clone https://github.com/skylerblue333/Py-ML-Inference-Server.git
+cd Py-ML-Inference-Server
 ```
+
+### Usage
+Follow the specific language conventions to run the project (e.g., `npm install`, `cargo build`, or `pip install -r requirements.txt`).
+
+## 🛡️ License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+Built by [Skyler Blue](https://github.com/skylerblue333)
