@@ -1,34 +1,16 @@
 # Py-ML-Inference-Server
+![CI Status](https://github.com/skylerblue333/Py-ML-Inference-Server/actions/workflows/ci.yml/badge.svg)
 
-Flask service for serving pre-trained models.
+## Overview
+A scalable Python-based ML Inference Server providing real-time AI capabilities to the SKYCOIN4444 ecosystem.
 
-## 🚀 Overview
-This repository contains a professional implementation of **Py ML Inference Server**. It is designed with clean code principles and focuses on functionality and reliability.
+## Features
+- **High Throughput**: Optimized for low-latency inference.
+- **Model Agnostic**: Supports multiple ML frameworks.
+- **Enterprise Ready**: Integrated monitoring and logging.
 
-## 🛠️ Tech Stack
-- **Primary Language**: Py
-- **Environment**: Node.js / Python / Rust (as applicable)
-- **Key Features**: 
-  - Modular architecture
-  - Clean implementation of core logic
-  - Scalable design
+## CI/CD
+Automated testing and linting via GitHub Actions.
 
-## 📂 Getting Started
-
-### Prerequisites
-- Ensure you have the latest version of the relevant runtime (Node.js, Python, or Rust) installed.
-
-### Installation
-```bash
-git clone https://github.com/skylerblue333/Py-ML-Inference-Server.git
-cd Py-ML-Inference-Server
-```
-
-### Usage
-Follow the specific language conventions to run the project (e.g., `npm install`, `cargo build`, or `pip install -r requirements.txt`).
-
-## 🛡️ License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-Built by [Skyler Blue](https://github.com/skylerblue333)
+## License
+MIT License
