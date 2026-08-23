@@ -1,21 +1,33 @@
-import numpy as np
-from typing import List, Dict
-import time
+from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Protocol
+
+import numpy as np
+
+
+class InferenceModel(Protocol):
+    loaded: bool
+    def load(self) -> None: ...
+    def predict(self, image_tensor: np.ndarray) -> dict[str, float]: ...
+
+
+@dataclass
 class MockResNet:
-    def __init__(self):
-        self.classes = ['cat', 'dog', 'car', 'truck']
-        self.loaded = False
-        
-    def load(self):
-        time.sleep(0.5) # Simulate IO
+    """Deterministic development model; replace with a real model adapter in production."""
+
+    classes: tuple[str, ...] = ("cat", "dog", "car", "truck")
+    loaded: bool = False
+
+    def load(self) -> None:
         self.loaded = True
-        
-    def predict(self, image_tensor: np.ndarray) -> Dict[str, float]:
+
+    def predict(self, image_tensor: np.ndarray) -> dict[str, float]:
         if not self.loaded:
             raise RuntimeError("Model not loaded")
-        # Simulate inference
-        logits = np.random.randn(len(self.classes))
-        exp_logits = np.exp(logits - np.max(logits))
-        probs = exp_logits / np.sum(exp_logits)
-        return {c: float(p) for c, p in zip(self.classes, probs)}
+        if image_tensor.ndim != 4 or image_tensor.shape[1:] != (3, 224, 224):
+            raise ValueError("expected tensor shape (batch, 3, 224, 224)")
+        logits = np.asarray([0.4, 0.3, 0.2, 0.1], dtype=np.float64)
+        probabilities = np.exp(logits - np.max(logits))
+        probabilities /= probabilities.sum()
+        return {label: float(probability) for label, probability in zip(self.classes, probabilities)}
