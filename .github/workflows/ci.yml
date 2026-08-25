@@ -1,17 +1,48 @@
-name: CI
-on: [push, pull_request]
+name: inference-ci
+
+on:
+  push:
+    branches:
+      - main
+      - "product/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.12"
+          cache: pip
       - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Lint
+        run: ruff check src tests
+      - name: Tests
+        run: python -m pytest -q
+      - name: Dependency audit
+        run: pip-audit -r requirements.txt
+      - name: Build container
+        run: docker build -t sky-inference:ci .
+      - name: Verify non-root image
+        run: test "$(docker image inspect sky-inference:ci --format '{{.Config.User}}')" = "app"
+      - name: Runtime smoke test
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      - name: Run Tests
-        run: echo "Running inference server tests..."
+          docker run -d --rm --name sky-inference-ci -p 18000:8000 sky-inference:ci
+          trap 'docker stop sky-inference-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:18000/healthz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs sky-inference-ci
+          exit 1
