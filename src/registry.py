@@ -119,7 +119,7 @@ def _token(value: str, label: str) -> str:
 
 def _bounded(value: str, label: str, minimum: int, maximum: int) -> str:
     if not isinstance(value, str):
-        raise ValueError(f"{label} must be a string")
+        raise TypeError(f"{label} must be a string")
     normalized = value.strip()
     if not minimum <= len(normalized) <= maximum:
         raise ValueError(f"invalid {label} length")
