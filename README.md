@@ -28,6 +28,7 @@ curl -s -X POST http://127.0.0.1:8000/v1/predict \
 ## Verification
 
 ```bash
+pip install pip-audit
 python -m compileall -q src tests
 ruff check src tests
 pytest -q tests/test_main.py
