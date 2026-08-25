@@ -1,42 +1,71 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import numpy as np
-import time
+import math
+import os
+from typing import Literal
 
-app = FastAPI(title="High-Performance ML Inference", version="3.0.0")
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field, field_validator
+
+app = FastAPI(title="Sky Inference", version="0.1.0")
+
+MAX_FEATURES = 256
+MODE = os.getenv("SKY_INFERENCE_MODE", "disabled").strip().lower()
+if MODE not in {"disabled", "demo"}:
+    raise RuntimeError("SKY_INFERENCE_MODE must be 'disabled' or 'demo'")
+
 
 class InferenceRequest(BaseModel):
-    tensor_data: list[float]
-    model_version: str = "v2-optimized"
+    features: list[float] = Field(min_length=1, max_length=MAX_FEATURES)
 
-class ModelRegistry:
-    def __init__(self):
-        # Simulate loading TensorRT/ONNX models into GPU memory
-        self.loaded = True
+    @field_validator("features")
+    @classmethod
+    def finite_features(cls, values: list[float]) -> list[float]:
+        if not all(math.isfinite(value) for value in values):
+            raise ValueError("features must contain only finite numbers")
+        return values
 
-    def predict(self, tensor: np.ndarray) -> np.ndarray:
-        # Simulate neural network forward pass (e.g., ResNet/Transformer)
-        return np.softmax(tensor) if hasattr(np, 'softmax') else np.exp(tensor) / sum(np.exp(tensor))
 
-registry = ModelRegistry()
+class PredictionResponse(BaseModel):
+    mode: Literal["demo"]
+    scores: list[float]
+    feature_count: int
 
-@app.post("/api/v2/predict")
-def predict(req: InferenceRequest):
-    start_time = time.perf_counter()
-    try:
-        arr = np.array(req.tensor_data)
-        if arr.size == 0:
-            raise ValueError("Empty tensor")
-            
-        result = registry.predict(arr)
-        
-        # Add OpenTelemetry span metadata here in production
-        latency_ms = (time.perf_counter() - start_time) * 1000
-        
-        return {
-            "predictions": result.tolist(),
-            "model": req.model_version,
-            "latency_ms": round(latency_ms, 2)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
+def _demo_scores(features: list[float]) -> list[float]:
+    """Return deterministic normalized scores for contract testing only."""
+    maximum = max(features)
+    weights = [math.exp(value - maximum) for value in features]
+    total = sum(weights)
+    return [weight / total for weight in weights]
+
+
+@app.get("/healthz")
+def healthz() -> dict[str, str]:
+    return {"status": "ok", "service": "sky-inference"}
+
+
+@app.get("/readyz")
+def readyz() -> dict[str, str]:
+    if MODE != "demo":
+        raise HTTPException(status_code=503, detail="no inference model is configured")
+    return {"status": "ready", "mode": MODE}
+
+
+@app.get("/metadata")
+def metadata() -> dict[str, object]:
+    return {
+        "service": "sky-inference",
+        "mode": MODE,
+        "max_features": MAX_FEATURES,
+        "trained_model_loaded": False,
+    }
+
+
+@app.post("/v1/predict", response_model=PredictionResponse)
+def predict(request: InferenceRequest) -> PredictionResponse:
+    if MODE != "demo":
+        raise HTTPException(status_code=503, detail="no inference model is configured")
+    return PredictionResponse(
+        mode="demo",
+        scores=_demo_scores(request.features),
+        feature_count=len(request.features),
+    )
