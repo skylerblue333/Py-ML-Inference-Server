@@ -1,16 +1,59 @@
 from fastapi.testclient import TestClient
+import pytest
+
 from src.main import app
 
-def test_inference_engine():
-    with TestClient(app) as client:
-        res = client.post("/api/v2/predict", json={"tensor_data": [1.0, 2.0, 3.0]})
-        assert res.status_code == 200
-        data = res.json()
-        assert "predictions" in data
-        assert "latency_ms" in data
-        assert len(data["predictions"]) == 3
 
-def test_empty_tensor():
-    with TestClient(app) as client:
-        res = client.post("/api/v2/predict", json={"tensor_data": []})
-        assert res.status_code == 400
+client = TestClient(app)
+
+
+def test_health_and_readiness() -> None:
+    health = client.get("/healthz")
+    assert health.status_code == 200
+    assert health.json() == {"status": "ok", "service": "sky-inference"}
+    assert health.headers["x-content-type-options"] == "nosniff"
+
+    ready = client.get("/readyz")
+    assert ready.status_code == 200
+    assert ready.json() == {
+        "status": "ready",
+        "model": "demo-linear",
+        "model_version": "demo-v1",
+        "model_source": "built-in-demo",
+        "feature_count": 3,
+    }
+
+
+def test_predict_uses_declared_demo_model() -> None:
+    response = client.post("/v1/predict", json={"features": [1.0, 2.0, 3.0]})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["prediction"] == pytest.approx(0.3)
+    assert payload["model"] == "demo-linear"
+    assert payload["model_source"] == "built-in-demo"
+    assert payload["feature_count"] == 3
+
+
+def test_predict_rejects_wrong_feature_count() -> None:
+    response = client.post("/v1/predict", json={"features": [1.0, 2.0]})
+    assert response.status_code == 400
+    assert response.json()["detail"] == "expected 3 features"
+
+
+def test_predict_rejects_empty_features() -> None:
+    response = client.post("/v1/predict", json={"features": []})
+    assert response.status_code == 422
+
+
+def test_request_id_is_preserved() -> None:
+    response = client.get("/healthz", headers={"x-request-id": "test-request"})
+    assert response.headers["x-request-id"] == "test-request"
+
+
+def test_metrics_report_requests_and_errors() -> None:
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["service"] == "sky-inference"
+    assert payload["requests_total"] >= 1
+    assert payload["errors_total"] >= 1
