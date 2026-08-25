@@ -1,44 +1,55 @@
-<!-- PORTFOLIO PROJECT PROFILE: maintained by the repository owner -->
+# Sky Inference — Python Engineering Beta
 
-## Project profile and code-audit snapshot
+Sky Inference is a small FastAPI service that provides a stable, bounded HTTP contract for numeric inference requests. It intentionally does **not** pretend that a trained model is bundled with this repository.
 
-**What this is:** **Py-ML-Inference-Server** is a public repository described as: “Flask service for serving pre-trained models. #SkyCoin4444 #AI #Blockchain #DevOps #Innovation” Its dominant language signals are **Python (6 files)**.
+## Status
 
-**Why it has value:** Its value is best understood through the implementation evidence currently present in the repository: **20 tracked files** were observed in the shallow audit, with the source structure and existing documentation providing the project’s specific context. This README does not treat a prototype, experiment, or archive as a production system without supporting evidence.
+**Engineering beta.** The default mode is `disabled`: liveness works, but readiness and prediction fail closed with HTTP 503 because no trained model is configured. Setting `SKY_INFERENCE_MODE=demo` enables a deterministic softmax-style scoring function for API integration and contract testing only.
 
-**Implementation evidence:** 2 test-related file(s) detected; 2 dependency or package manifest(s) detected; 2 build/CI/infrastructure signal(s) detected; and 3 documentation or governance file(s) detected. Test filenames observed include `tests/test_main.py`, `tests/test_server.py`. Dependency or package files include `package.json`, `requirements.txt`. Build, CI, or infrastructure signals include `Dockerfile`, `.github/workflows/ci.yml`.
+The demo mode is **not a trained machine-learning model**, does not represent model accuracy, and must not be described as GPU/TensorRT/ONNX serving or production inference.
 
-**Current status:** The repository is tracked on the `main` branch. The existing source tree, configuration, tests, workflows, and documentation remain authoritative for supported behavior and maturity. A code audit is not a production-readiness certification, and the presence of a test or workflow file does not establish that all checks pass.
+## API
 
-**Relationship to the wider portfolio:** This repository is one focused component of the broader Skyler Blue Spillers portfolio across AI, software engineering, cloud and DevOps, cybersecurity, blockchain, finance, education, social systems, and creative work. It may provide a service boundary, implementation pattern, experiment, archive, or reusable idea for related repositories. Treat repositories as technical dependencies only where documented interfaces and verified project requirements support that relationship.
+- `GET /healthz` — process liveness.
+- `GET /readyz` — returns ready only when an explicit inference mode is available.
+- `GET /metadata` — reports mode, feature bound, and whether a trained model is loaded.
+- `POST /v1/predict` — accepts `{ "features": [1.0, 2.0] }`; 1–256 finite numbers only.
 
-**Quality and security note:** No obvious secret-like pattern was detected by the limited static scan; this is not a substitute for a security audit. No TODO/FIXME marker was detected in the scanned text files.
+Example demo run:
 
----
+```bash
+SKY_INFERENCE_MODE=demo uvicorn src.main:app --host 127.0.0.1 --port 8000
+curl -s http://127.0.0.1:8000/readyz
+curl -s -X POST http://127.0.0.1:8000/v1/predict \
+  -H 'content-type: application/json' \
+  -d '{"features":[1.0,2.0,3.0]}'
+```
 
-# Py Ml Inference Server
+## Verification
 
-![GitHub stars](https://img.shields.io/github/stars/skylerblue333/Py-ML-Inference-Server?style=flat-square)
-![GitHub license](https://img.shields.io/github/license/skylerblue333/Py-ML-Inference-Server?style=flat-square)
+```bash
+python -m compileall -q src tests
+ruff check src tests
+pytest -q tests/test_main.py
+pip-audit -r requirements.txt
+docker build -t sky-inference .
+docker run --rm --entrypoint=id sky-inference -u
+```
 
-## 🌟 Overview
-**Py-ML-Inference-Server** is a professional-grade project within the **SkyCoin4444** ecosystem. It focuses on delivering high-value solutions in the domain of **Python**.
+CI additionally starts the container and checks `/healthz`. The container runs as UID `10001`.
 
-## 🚀 Key Features
-- **Scalable Architecture**: Designed for enterprise-level growth and performance.
-- **Modern Standards**: Implements best practices for clean code and maintainability.
-- **Robust Integration**: Built to work seamlessly within modern cloud-native environments.
+## Architecture
 
-## 🛠️ Technology Stack
-- **Primary Domain**: Python
-- **Ecosystem**: SkyCoin4444 Digital Platform
+`src/main.py` is the single canonical application entrypoint. Request validation rejects empty, oversized, and non-finite feature vectors. The service keeps model availability explicit instead of silently substituting a fake model. A future real model adapter should implement a reviewed model-loading boundary and should keep the HTTP contract stable where practical.
 
-## 📂 Structure
-The project is organized into a modular structure to ensure clarity and ease of development.
+## SKYCOIN4444 integration
 
-## 👨‍💻 Author
-**Skyler Blue Spillers**
-*Professional Chess Player & Software Engineer*
+SKYCOIN4444 services can call this component through `/v1/predict` after readiness succeeds. Consumers should treat HTTP 503 as “model unavailable” rather than fabricating a fallback prediction. This keeps the standalone repository reusable without copying it into the flagship application.
 
----
-*Powered by SkyCoin4444*
+## Security and operational boundaries
+
+This repository does not currently provide authentication, tenant isolation, rate limiting, request signing, model artifact verification, encrypted model storage, GPU isolation, autoscaling, distributed serving, a model registry, drift monitoring, or production deployment evidence. Put appropriate network/auth controls in front of the service before exposing it outside a trusted development environment.
+
+## License
+
+See `LICENSE`.
