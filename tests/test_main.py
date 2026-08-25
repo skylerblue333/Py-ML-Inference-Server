@@ -1,16 +1,38 @@
 from fastapi.testclient import TestClient
-from src.main import app
 
-def test_inference_engine():
-    with TestClient(app) as client:
-        res = client.post("/api/v2/predict", json={"tensor_data": [1.0, 2.0, 3.0]})
-        assert res.status_code == 200
-        data = res.json()
-        assert "predictions" in data
-        assert "latency_ms" in data
-        assert len(data["predictions"]) == 3
+import src.main as service
 
-def test_empty_tensor():
-    with TestClient(app) as client:
-        res = client.post("/api/v2/predict", json={"tensor_data": []})
-        assert res.status_code == 400
+
+def test_health_is_independent_of_model_mode():
+    with TestClient(service.app) as client:
+        response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json()["service"] == "sky-inference"
+
+
+def test_disabled_mode_fails_closed(monkeypatch):
+    monkeypatch.setattr(service, "MODE", "disabled")
+    with TestClient(service.app) as client:
+        assert client.get("/readyz").status_code == 503
+        response = client.post("/v1/predict", json={"features": [1.0, 2.0]})
+    assert response.status_code == 503
+
+
+def test_demo_mode_is_deterministic_and_normalized(monkeypatch):
+    monkeypatch.setattr(service, "MODE", "demo")
+    with TestClient(service.app) as client:
+        response = client.post("/v1/predict", json={"features": [1.0, 2.0, 3.0]})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["mode"] == "demo"
+    assert payload["feature_count"] == 3
+    assert abs(sum(payload["scores"]) - 1.0) < 1e-12
+
+
+def test_input_bounds_and_finite_validation(monkeypatch):
+    monkeypatch.setattr(service, "MODE", "demo")
+    with TestClient(service.app) as client:
+        assert client.post("/v1/predict", json={"features": []}).status_code == 422
+        too_many = [1.0] * (service.MAX_FEATURES + 1)
+        assert client.post("/v1/predict", json={"features": too_many}).status_code == 422
+        assert client.post("/v1/predict", content='{"features":[1e999]}', headers={"content-type": "application/json"}).status_code == 422
