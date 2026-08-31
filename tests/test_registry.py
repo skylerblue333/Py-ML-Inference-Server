@@ -57,3 +57,16 @@ def test_serving_model_info_maps_to_registry_contract() -> None:
     assert record.version == info.version
     assert record.feature_count == info.feature_count
     assert record.deployment_verified is False
+
+
+def test_serving_model_info_rejects_boolean_feature_count() -> None:
+    try:
+        record_from_serving_info(
+            name="demo-linear",
+            version="demo-v1",
+            source="built-in-demo",
+            feature_count=True,
+        )
+        raise AssertionError("expected boolean feature_count rejection")
+    except ValueError as exc:
+        assert "feature_count" in str(exc)

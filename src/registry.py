@@ -94,20 +94,18 @@ class ModelRegistry:
 
 def record_from_serving_info(*, name: str, version: str, source: str, feature_count: int) -> ModelRecord:
     """Create an unpersisted registry-compatible record from the inference service contract."""
+    if not isinstance(feature_count, int) or isinstance(feature_count, bool) or not 1 <= feature_count <= 100_000:
+        raise ValueError("feature_count must be an integer between 1 and 100000")
     return ModelRecord(
         name=_token(name, "name"),
         version=_token(version, "version"),
         source=_bounded(source, "source", 1, 256),
-        feature_count=feature_count if isinstance(feature_count, int) and 1 <= feature_count <= 100_000 else _raise_feature_count(),
+        feature_count=feature_count,
         artifact_digest=None,
         tags=(),
         registered_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         deployment_verified=False,
     )
-
-
-def _raise_feature_count() -> int:
-    raise ValueError("feature_count must be an integer between 1 and 100000")
 
 
 def _token(value: str, label: str) -> str:
